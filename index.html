@@ -3,806 +3,434 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Туристическое Радио — Карта</title>
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Туристическое Радио</title>
 
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <!-- Leaflet Routing Machine CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
-
-    <!-- Telegram Web App -->
+    <!-- Telegram WebApp -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f5f5f5;
-            color: #333;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
         }
 
-        #map {
-            width: 100%;
-            height: 60vh;
+        .map-container {
+            height: 100vh;
+            width: 100vw;
         }
 
-        .poi-list {
-            padding: 12px;
-            max-height: 40vh;
-            overflow-y: auto;
-            background: #fff;
-        }
-
-        .poi-card {
-            background: #f8f9fa;
-            border-radius: 12px;
-            padding: 12px;
-            margin-bottom: 8px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-            border: 1px solid #e0e0e0;
-        }
-
-        .poi-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-
-        .poi-card.visited {
-            opacity: 0.5;
-            background: #e8e8e8;
-        }
-
-        .poi-card.current {
-            border: 2px solid #4ade80;
-            background: #f0fff4;
-        }
-
-        .poi-icon {
-            font-size: 28px;
-            width: 40px;
-            text-align: center;
-        }
-
-        .poi-info {
-            flex: 1;
-        }
-
-        .poi-name {
-            font-weight: 600;
-            font-size: 15px;
-            margin-bottom: 4px;
-            color: #333;
-        }
-
-        .poi-meta {
-            font-size: 13px;
-            color: #666;
-        }
-
-        .poi-distance {
-            font-size: 14px;
-            font-weight: 500;
-            color: #16a34a;
-        }
-
-        .status-bar {
-            padding: 10px 12px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            font-size: 13px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .status-left {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .pulse {
-            width: 8px;
-            height: 8px;
-            background: #4ade80;
+        /* User Marker Pulse */
+        .user-pulse {
+            width: 20px;
+            height: 20px;
+            background: #2AABEE;
+            border: 3px solid white;
             border-radius: 50%;
-            animation: pulse 2s infinite;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+            position: relative;
         }
 
-        @keyframes pulse {
+        .user-pulse::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px;
+            height: 40px;
+            background: rgba(42, 171, 238, 0.4);
+            border-radius: 50%;
+            animation: pulse-blue 2s infinite;
+            z-index: -1;
+        }
 
-            0%,
-            100% {
+        @keyframes pulse-blue {
+            0% {
+                transform: translate(-50%, -50%) scale(0.5);
                 opacity: 1;
             }
 
-            50% {
-                opacity: 0.5;
+            100% {
+                transform: translate(-50%, -50%) scale(1.5);
+                opacity: 0;
             }
         }
 
-        .debug-btn {
-            background: rgba(255, 255, 255, 0.2);
-            border: 1px solid rgba(255, 255, 255, 0.4);
-            color: white;
-            padding: 4px 10px;
-            border-radius: 15px;
-            font-size: 12px;
-            cursor: pointer;
-        }
-
-        .debug-btn.active {
-            background: #ef4444;
-        }
-
-        .leaflet-routing-container {
-            display: none;
-        }
-
-        .loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(255, 255, 255, 0.9);
+        /* Marker Styles */
+        .poi-marker {
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            z-index: 9999;
-            color: #333;
+            font-size: 20px;
+            border: 2px solid white;
         }
 
-        .loading-overlay.hidden {
-            display: none;
+        .poi-marker.visited {
+            opacity: 0.6;
+            filter: grayscale(100%);
         }
 
-        .spinner {
-            width: 50px;
-            height: 50px;
-            border: 4px solid #e0e0e0;
-            border-top-color: #667eea;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-bottom: 16px;
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        .next-target {
-            padding: 10px 15px;
-            background: #f0fff4;
-            border-bottom: 1px solid #d1fae5;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .next-target-icon {
-            font-size: 24px;
-        }
-
-        .next-target-info {
-            flex: 1;
-        }
-
-        .next-target-name {
-            font-weight: 600;
-            color: #166534;
-        }
-
-        .next-target-dist {
-            font-size: 13px;
-            color: #16a34a;
+        .poi-marker.active {
+            transform: scale(1.2);
+            border-color: #3B82F6;
+            z-index: 1000 !important;
         }
     </style>
 </head>
 
-<body>
-    <div class="loading-overlay" id="loading">
-        <div class="spinner"></div>
-        <div>Загрузка карты...</div>
+<body class="bg-gray-100 overflow-hidden select-none">
+
+    <!-- Map -->
+    <div id="map" class="map-container absolute inset-0 z-0"></div>
+
+    <!-- Controls -->
+    <div class="absolute top-4 right-4 z-[400] flex flex-col gap-3 safe-area-top">
+        <button onclick="centerMap()"
+            class="bg-white/90 backdrop-blur p-3 rounded-full shadow-lg active:scale-95 transition text-blue-500">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+        </button>
+        <button id="debugBtn" onclick="toggleDebug()"
+            class="bg-white/90 backdrop-blur p-3 rounded-full shadow-lg active:scale-95 transition text-gray-400">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+        </button>
     </div>
 
-    <div class="status-bar" id="statusBar">
-        <div class="status-left">
-            <div class="pulse"></div>
-            <span id="statusText">Определение местоположения...</span>
-        </div>
-        <div style="display: flex; gap: 8px;">
-            <button id="htmlSendBtn" onclick="sendDebugLocation()" style="
-                display: none;
-                background: #4ade80;
-                border: 1px solid rgba(255, 255, 255, 0.4);
-                color: #064e3b;
-                padding: 4px 10px;
-                border-radius: 15px;
-                font-size: 12px;
-                font-weight: 600;
-                cursor: pointer;
-            ">📤 Отправить</button>
-            <button class="debug-btn" id="debugBtn" onclick="toggleDebug()">🔧 Debug</button>
-        </div>
-    </div>
+    <!-- Bottom Sheet -->
+    <div id="infoPanel"
+        class="absolute bottom-6 left-4 right-4 z-[500] bg-white/95 backdrop-blur rounded-3xl shadow-2xl p-5 transition-all duration-300 transform translate-y-[120%]">
 
-    <div id="map"></div>
+        <div class="flex items-center gap-4">
+            <div id="poiIconBox"
+                class="w-12 h-12 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center text-2xl shadow-sm shrink-0">
+                📍
+            </div>
+            <div class="flex-1 min-w-0">
+                <div class="flex justify-between items-baseline">
+                    <div class="text-xs text-blue-500 font-bold uppercase tracking-wide mb-1">Следующая точка</div>
+                    <div id="distBadge" class="text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-500 font-mono">-- м
+                    </div>
+                </div>
+                <h2 id="poiName" class="text-lg font-bold text-gray-900 leading-tight truncate">...</h2>
+            </div>
+        </div>
 
-    <div style="font-size: 10px; color: #ccc; text-align: center; padding: 2px;">
-        v: <span id="tgVersion">-</span> | init: <span id="tgInit">-</span>
+        <div id="playerControls" class="mt-4 hidden animate-fade-in">
+            <div class="h-1 bg-gray-200 rounded-full overflow-hidden mb-2">
+                <div class="h-full bg-blue-500 w-0 transition-all duration-300 animate-pulse"></div>
+            </div>
+            <p id="playerStatus" class="text-xs text-center text-gray-400">Генерация истории...</p>
+        </div>
+
+        <!-- Debug Send Button (Only visible in debug) -->
+        <button id="sendLocationBtn" onclick="sendLocationToBot()"
+            class="mt-4 w-full bg-green-500 text-white font-bold py-3 rounded-xl shadow active:scale-95 transition hidden">
+            📍 Отправить координаты
+        </button>
     </div>
 
     <script>
-        // Update debug info
-        document.getElementById('tgVersion').textContent = window.Telegram.WebApp.version || 'undef';
-        document.getElementById('tgInit').textContent = window.Telegram.WebApp.initData ? 'yes' : 'no';
-    </script>
-
-    <div class="next-target" id="nextTarget" style="display: none;">
-        <div class="next-target-icon">🎯</div>
-        <div class="next-target-info">
-            <div class="next-target-name" id="nextTargetName">-</div>
-            <div class="next-target-dist" id="nextTargetDist">-</div>
-        </div>
-    </div>
-
-    <div class="poi-list" id="poiList">
-        <!-- POI cards will be inserted here -->
-    </div>
-
-    <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- Leaflet Routing Machine -->
-    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.min.js"></script>
-
-    <script>
-        // Initialize Telegram WebApp
         const tg = window.Telegram.WebApp;
-        tg.ready();
         tg.expand();
 
-        // State
-        let map;
-        let userMarker;
-        let routingControl;
-        let routeLine;
-        let poiMarkers = [];
+        // Config & State
+        let map, userMarker, routeLine;
         let pois = [];
-        let userPosition = null;
-        let visitedPois = new Set();
-        let currentTargetIndex = 0;
+        let visitedOps = new Set();
+        let currentTarget = null;
         let debugMode = false;
-        let lastSpokenPoi = null;
         let apiUrl = null;
-        let currentAudio = null;
+        let isAudioPlaying = false;
+        let lastSpokenId = null;
 
-        // Init params
+        // Init Parsing
         const urlParams = new URLSearchParams(window.location.search);
         apiUrl = urlParams.get('apiUrl');
-        if (apiUrl) console.log("Backend API configured:", apiUrl);
+        const startLat = parseFloat(urlParams.get('lat')) || 59.9343;
+        const startLon = parseFloat(urlParams.get('lon')) || 30.3351;
 
-        // API & Audio Logic
-        async function fetchAndPlayStory(poi) {
-            setStatus("⏳ Генерирую историю...");
-            try {
-                const res = await fetch(`${apiUrl}/api/story`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        name: poi.name,
-                        tags: JSON.stringify(poi.tags),
-                        lat: poi.lat,
-                        lon: poi.lon
-                    })
+        try {
+            const poisData = JSON.parse(urlParams.get('pois') || '[]');
+            pois = poisData.map((p, i) => ({ ...p, id: i })); // assign simple IDs
+        } catch (e) { console.error("Error parsing POIs", e); }
+
+        // --- Map Setup ---
+        function initMap() {
+            map = L.map('map', { zoomControl: false }).setView([startLat, startLon], 16);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap',
+                opacity: 0.8
+            }).addTo(map);
+
+            // Create User Marker
+            const userIcon = L.divIcon({
+                className: 'user-pulse',
+                iconSize: [20, 20],
+                iconAnchor: [10, 10]
+            });
+            userMarker = L.marker([startLat, startLon], { icon: userIcon }).addTo(map);
+
+            // Add POIs
+            pois.forEach(poi => {
+                const icon = getEmojiForType(poi.tags);
+                const poiIcon = L.divIcon({
+                    html: icon,
+                    className: 'poi-marker',
+                    iconSize: [40, 40],
+                    iconAnchor: [20, 20]
                 });
 
-                if (!res.ok) throw new Error('API Error');
+                const marker = L.marker([poi.lat, poi.lon], { icon: poiIcon }).addTo(map);
+                marker.poiData = poi;
+                marker.getElement().id = `marker-${poi.id}`;
+            });
 
-                const data = await res.json();
+            // Initial focus
+            updateNextTarget([startLat, startLon]);
+            centerMap();
 
-                if (data.audio_url) {
-                    playAudio(`${apiUrl}${data.audio_url}`);
-                    setStatus(`🗣 ${poi.name}`);
-                } else if (data.text) {
-                    speak(data.text);
+            // Debug click listener
+            map.on('click', (e) => {
+                if (debugMode) {
+                    const { lat, lng } = e.latlng;
+                    simulateMovement(lat, lng);
+                }
+            });
+        }
+
+        // --- Logic ---
+
+        function simulateMovement(lat, lon) {
+            userMarker.setLatLng([lat, lon]);
+            updateNextTarget([lat, lon]);
+            updateRoute([lat, lon], [currentTarget.lat, currentTarget.lon]);
+            checkProximity(lat, lon);
+        }
+
+        function updateNextTarget(userLoc) {
+            // Find nearest unvisited POI
+            let minDist = Infinity;
+            let nearest = null;
+
+            pois.forEach(poi => {
+                if (!visitedOps.has(poi.id)) {
+                    const d = getDistance(userLoc[0], userLoc[1], poi.lat, poi.lon);
+                    if (d < minDist) {
+                        minDist = d;
+                        nearest = poi;
+                    }
+                }
+            });
+
+            if (nearest && nearest !== currentTarget) {
+                // Focus change
+                if (currentTarget) {
+                    const prevEl = document.getElementById(`marker-${currentTarget.id}`);
+                    if (prevEl) prevEl.classList.remove('active');
+                }
+
+                currentTarget = nearest;
+                const newEl = document.getElementById(`marker-${nearest.id}`);
+                if (newEl) newEl.classList.add('active');
+
+                // Update UI
+                document.getElementById('infoPanel').classList.remove('translate-y-[120%]');
+                document.getElementById('poiName').innerText = nearest.name;
+                document.getElementById('poiIconBox').innerText = getEmojiForType(nearest.tags);
+                document.getElementById('distBadge').innerText = Math.round(minDist) + ' м';
+            }
+
+            if (nearest) {
+                const d = getDistance(userLoc[0], userLoc[1], nearest.lat, nearest.lon);
+                document.getElementById('distBadge').innerText = Math.round(d) + ' м';
+            }
+        }
+
+        async function updateRoute(start, end) {
+            // Fetch OSRM via Proxy
+            let url;
+            if (apiUrl) {
+                // Use our proxy to avoid CORS/HTTPS issues
+                url = `${apiUrl}/api/route?start=${start[0]},${start[1]}&end=${end[0]},${end[1]}`;
+            } else {
+                // Direct fallback (might fail due to CORS/HTTPS)
+                url = `https://router.project-osrm.org/route/v1/walking/${start[1]},${start[0]};${end[1]},${end[0]}?overview=full&geometries=geojson`;
+            }
+
+            try {
+                const res = await fetch(url);
+                const json = await res.json();
+
+                if (json.routes && json.routes.length > 0) {
+                    const route = json.routes[0];
+                    const coords = route.geometry.coordinates.map(c => [c[1], c[0]]); // flip to lat,lon
+
+                    if (routeLine) map.removeLayer(routeLine);
+
+                    routeLine = L.polyline(coords, {
+                        color: '#3B82F6',
+                        weight: 6,
+                        opacity: 0.8,
+                        lineCap: 'round',
+                        dashArray: '1, 10' // Dot line style for walking
+                    }).addTo(map);
                 }
             } catch (e) {
-                console.error("Story generation failed:", e);
-                // Fallback
-                const typeName = getPoiType(poi.tags).name;
-                speak(`Вы прибыли к ${typeName}: ${poi.name}`);
+                console.error("Routing failed, fallback to straight line");
+                if (routeLine) map.removeLayer(routeLine);
+                routeLine = L.polyline([start, end], { color: '#3B82F6', dashArray: '5,10' }).addTo(map);
             }
         }
 
-        function playAudio(src) {
-            if (currentAudio) {
-                currentAudio.pause();
-                currentAudio = null;
-            }
-            const audio = new Audio(src);
-            currentAudio = audio;
-            audio.play().catch(e => console.error("Audio play error:", e));
+        function checkProximity(lat, lon) {
+            if (!currentTarget) return;
+            const d = getDistance(lat, lon, currentTarget.lat, currentTarget.lon);
 
-            audio.onended = () => {
-                setStatus(`✅ Прослушано: ${pois[currentTargetIndex]?.name || ''}`);
-            };
+            if (d < 50) { // Arrival
+                if (lastSpokenId !== currentTarget.id) {
+                    lastSpokenId = currentTarget.id;
+                    playStory(currentTarget);
+                    visitedOps.add(currentTarget.id);
+                    document.getElementById(`marker-${currentTarget.id}`).classList.add('visited');
+                }
+            }
         }
 
-        // TTS setup (Fallback)
+        // --- Audio & API ---
+        async function playStory(poi) {
+            const controls = document.getElementById('playerControls');
+            const status = document.getElementById('playerStatus');
+            controls.classList.remove('hidden');
+            status.innerText = "Генерирую историю...";
+
+            if (apiUrl) {
+                try {
+                    const res = await fetch(`${apiUrl}/api/story`, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            name: poi.name, tags: JSON.stringify(poi.tags),
+                            lat: poi.lat, lon: poi.lon
+                        }),
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    const data = await res.json();
+
+                    if (data.audio_url) {
+                        const audio = new Audio(`${apiUrl}${data.audio_url}`);
+                        audio.play();
+                        status.innerText = "Идет воспроизведение...";
+                        status.classList.add('text-blue-500');
+
+                        audio.onended = () => {
+                            controls.classList.add('hidden');
+                            // Find next target
+                            updateNextTarget([poi.lat, poi.lon]);
+                        };
+                    } else {
+                        // Text fallback
+                        speak(data.text);
+                        controls.classList.add('hidden');
+                    }
+                } catch (e) {
+                    console.error(e);
+                    speak("Вы прибыли к точке " + poi.name);
+                }
+            } else {
+                speak("Вы прибыли к точке " + poi.name);
+            }
+        }
+
         function speak(text) {
-            if (currentAudio) currentAudio.pause();
-            if (!window.speechSynthesis) return;
-            window.speechSynthesis.cancel();
-
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = 'ru-RU';
-            utterance.rate = 1.0;
-            utterance.pitch = 1.0;
-            window.speechSynthesis.speak(utterance);
-            console.log('🗣 Speaking:', text);
-        }
-
-        // POI type icons and names
-        const poiTypes = {
-            monument: { emoji: '🗿', name: 'Памятник' },
-            memorial: { emoji: '🪦', name: 'Мемориал' },
-            building: { emoji: '🏛', name: 'Здание' },
-            museum: { emoji: '🏛', name: 'Музей' },
-            artwork: { emoji: '🎨', name: 'Арт-объект' },
-            viewpoint: { emoji: '🌄', name: 'Смотровая' },
-            attraction: { emoji: '⭐', name: 'Достопримечательность' },
-            theatre: { emoji: '🎭', name: 'Театр' },
-            cinema: { emoji: '🎬', name: 'Кино' },
-            default: { emoji: '📍', name: 'Интересное место' }
-        };
-
-        function getPoiType(tags) {
-            if (!tags) return poiTypes.default;
-            for (const [key, value] of Object.entries(tags)) {
-                if (poiTypes[value]) return poiTypes[value];
-            }
-            return poiTypes.default;
-        }
-
-        function setStatus(text) {
-            document.getElementById('statusText').textContent = text;
-        }
-
-        function hideLoading() {
-            document.getElementById('loading').classList.add('hidden');
-        }
-
-        let audioUnlocked = false;
-
-        function unlockAudio() {
-            if (!audioUnlocked && window.speechSynthesis) {
-                const u = new SpeechSynthesisUtterance('');
+            if (window.speechSynthesis) {
+                window.speechSynthesis.cancel();
+                const u = new SpeechSynthesisUtterance(text);
+                u.lang = 'ru-RU';
                 window.speechSynthesis.speak(u);
-                audioUnlocked = true;
             }
+        }
+
+        // --- Utils ---
+        function centerMap() {
+            if (userMarker) map.setView(userMarker.getLatLng(), 17);
         }
 
         function toggleDebug() {
             debugMode = !debugMode;
-            unlockAudio();
             const btn = document.getElementById('debugBtn');
-            btn.classList.toggle('active', debugMode);
+            const sendBtn = document.getElementById('sendLocationBtn');
+
             if (debugMode) {
-                setStatus('🔧 DEBUG: кликните на карту для перемещения');
+                btn.classList.replace('text-gray-400', 'text-amber-500');
+                sendBtn.classList.remove('hidden');
+                speak(''); // Unlock audio context
             } else {
-                setStatus(`Маршрут: ${pois.length} точек`);
+                btn.classList.replace('text-amber-500', 'text-gray-400');
+                sendBtn.classList.add('hidden');
             }
         }
 
-        // Initialize map at a position
-        function initMap(lat, lon) {
-            if (map) return;
-
-            map = L.map('map').setView([lat, lon], 15);
-
-            // Light theme OpenStreetMap
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap'
-            }).addTo(map);
-
-            // User marker (blue pulsing dot)
-            const userIcon = L.divIcon({
-                html: `<div style="
-                    width: 20px;
-                    height: 20px;
-                    background: #4285f4;
-                    border: 3px solid white;
-                    border-radius: 50%;
-                    box-shadow: 0 0 10px rgba(66, 133, 244, 0.8);
-                "></div>`,
-                iconSize: [20, 20],
-                iconAnchor: [10, 10],
-                className: ''
-            });
-
-            userMarker = L.marker([lat, lon], { icon: userIcon, zIndexOffset: 1000 }).addTo(map);
-            userPosition = { lat, lon };
-
-            // Debug mode state
-            let pendingDebugLocation = null;
-
-            // Click handler for debug mode
-            map.on('click', (e) => {
-                if (debugMode) {
-                    const newLat = e.latlng.lat;
-                    const newLon = e.latlng.lng;
-
-                    updateUserPosition(newLat, newLon);
-
-                    // Store pending location
-                    pendingDebugLocation = { lat: newLat, lon: newLon };
-
-                    setStatus(`📍 Клик: ${newLat.toFixed(4)}, ${newLon.toFixed(4)}`);
-
-                    // Show MainButton
-                    if (tg.MainButton) {
-                        tg.MainButton.setText('📤 Отправить координаты');
-                        tg.MainButton.show();
-                    }
-
-                    // Also show HTML fallback button
-                    const htmlBtn = document.getElementById('htmlSendBtn');
-                    if (htmlBtn) {
-                        htmlBtn.style.display = 'inline-block';
-                        htmlBtn.textContent = '📤 Отправить';
-                    }
-                }
-            });
-
-            // Function to send data
-            window.sendDebugLocation = function () {
-                if (pendingDebugLocation) {
-                    const locationData = JSON.stringify({
-                        type: 'debug_location',
-                        lat: pendingDebugLocation.lat,
-                        lon: pendingDebugLocation.lon
-                    });
-
-                    try {
-                        tg.sendData(locationData);
-                    } catch (err) {
-                        console.error('sendData error:', err);
-                        alert('Ошибка sendData: ' + err.message);
-                    }
-                }
-            };
-
-            // MainButton click handler
-            if (tg.MainButton) {
-                tg.MainButton.onClick(window.sendDebugLocation);
-            }
-
-            hideLoading();
-        }
-
-        // Update user position
-        function updateUserPosition(lat, lon) {
-            userPosition = { lat, lon };
+        function sendLocationToBot() {
             if (userMarker) {
-                userMarker.setLatLng([lat, lon]);
-            }
-            updateDistances();
-            checkProximity();
-            drawRouteToNext();
-            renderPoiList();
-        }
-
-        // Check if user is close to current target
-        function checkProximity() {
-            if (!userPosition || pois.length === 0) return;
-
-            const target = pois[currentTargetIndex];
-            if (!target || visitedPois.has(target.id)) {
-                // Move to next unvisited
-                moveToNextTarget();
-                return;
-            }
-
-            const dist = calculateDistance(userPosition.lat, userPosition.lon, target.lat, target.lon);
-
-            if (dist < 50) { // Within 50 meters
-                visitedPois.add(target.id);
-
-                if (lastSpokenPoi !== target.id) {
-                    lastSpokenPoi = target.id;
-
-                    if (apiUrl) {
-                        fetchAndPlayStory(target);
-                    } else {
-                        const typeName = getPoiType(target.tags).name;
-                        speak(`Вы прибыли к ${typeName}: ${target.name}.`);
-                        setStatus(`🗣 Озвучиваю: ${target.name}`);
-                    }
-                } else {
-                    setStatus(`✅ Прибыли: ${target.name}`);
-                }
-
-                // Delay moving to next target to prevent spam
-                setTimeout(() => {
-                    // Only move if we finished? No, just keep moving.
-                    moveToNextTarget();
-                }, 10000); // 10 sec delay before switch specific target focus
-            }
-        }
-
-        function moveToNextTarget() {
-            // Find next unvisited POI
-            for (let i = 0; i < pois.length; i++) {
-                if (!visitedPois.has(pois[i].id)) {
-                    currentTargetIndex = i;
-                    drawRouteToNext();
-                    renderPoiList();
-                    return;
-                }
-            }
-            // All visited
-            setStatus('🎉 Маршрут завершён!');
-            document.getElementById('nextTarget').style.display = 'none';
-        }
-
-        // Add POIs to map
-        function addPoisToMap(poisData) {
-            pois = poisData;
-            currentTargetIndex = 0;
-            visitedPois.clear();
-
-            // Clear existing markers
-            poiMarkers.forEach(m => map.removeLayer(m));
-            poiMarkers = [];
-
-            // Add markers for each POI
-            pois.forEach((poi, index) => {
-                const type = getPoiType(poi.tags);
-                const isTarget = index === currentTargetIndex;
-
-                const icon = L.divIcon({
-                    html: `<div style="
-                        font-size: 24px;
-                        text-align: center;
-                        background: ${isTarget ? '#4ade80' : 'white'};
-                        border-radius: 50%;
-                        width: 36px;
-                        height: 36px;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        border: 2px solid ${isTarget ? '#166534' : '#667eea'};
-                        box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-                    ">${type.emoji}</div>`,
-                    iconSize: [36, 36],
-                    iconAnchor: [18, 18],
-                    className: ''
+                const ll = userMarker.getLatLng();
+                const data = JSON.stringify({
+                    latitude: ll.lat,
+                    longitude: ll.lng
                 });
-
-                const marker = L.marker([poi.lat, poi.lon], { icon })
-                    .addTo(map)
-                    .bindPopup(`<b>${index + 1}. ${poi.name}</b><br>${type.name}`);
-
-                marker.on('click', () => selectPoi(index));
-                poiMarkers.push(marker);
-            });
-
-            // Draw route to first target
-            drawRouteToNext();
-            updateDistances();
-            renderPoiList();
-
-            // Fit bounds to show all POIs
-            if (pois.length > 0) {
-                const allPoints = pois.map(p => [p.lat, p.lon]);
-                if (userPosition) {
-                    allPoints.push([userPosition.lat, userPosition.lon]);
-                }
-                map.fitBounds(allPoints, { padding: [30, 30] });
+                tg.sendData(data);
+                // Also can close via tg.close(), but we want to keep it open
             }
-
-            setStatus(`Маршрут: ${pois.length} точек`);
         }
 
-        // Draw route only to next target
-        function drawRouteToNext() {
-            // Remove existing route
-            if (routeLine) {
-                map.removeLayer(routeLine);
-                routeLine = null;
-            }
-            if (routingControl) {
-                map.removeControl(routingControl);
-                routingControl = null;
-            }
-
-            if (!userPosition || pois.length === 0) return;
-
-            // Find current target
-            let target = pois[currentTargetIndex];
-            if (!target || visitedPois.has(target.id)) {
-                for (let i = 0; i < pois.length; i++) {
-                    if (!visitedPois.has(pois[i].id)) {
-                        currentTargetIndex = i;
-                        target = pois[i];
-                        break;
-                    }
-                }
-            }
-
-            if (!target) {
-                document.getElementById('nextTarget').style.display = 'none';
-                return;
-            }
-
-            // Update next target panel
-            const dist = calculateDistance(userPosition.lat, userPosition.lon, target.lat, target.lon);
-            document.getElementById('nextTarget').style.display = 'flex';
-            document.getElementById('nextTargetName').textContent = target.name;
-            document.getElementById('nextTargetDist').textContent = formatDistance(dist);
-
-            // Draw simple line to target (faster than OSRM)
-            routeLine = L.polyline([
-                [userPosition.lat, userPosition.lon],
-                [target.lat, target.lon]
-            ], {
-                color: '#667eea',
-                weight: 4,
-                opacity: 0.8,
-                dashArray: '10, 10'
-            }).addTo(map);
-        }
-
-        // Update distances from user
-        function updateDistances() {
-            if (!userPosition) return;
-
-            pois.forEach(poi => {
-                poi.distance = calculateDistance(
-                    userPosition.lat, userPosition.lon,
-                    poi.lat, poi.lon
-                );
-            });
-        }
-
-        // Calculate distance in meters (Haversine)
-        function calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371000;
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        function getDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3;
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δφ = (lat2 - lat1) * Math.PI / 180;
+            const Δλ = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                Math.cos(φ1) * Math.cos(φ2) *
+                Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
             return R * c;
         }
 
-        // Render POI list
-        function renderPoiList() {
-            const container = document.getElementById('poiList');
-            container.innerHTML = '';
-
-            if (pois.length === 0) {
-                container.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Отправьте геолокацию боту</div>';
-                return;
-            }
-
-            pois.forEach((poi, index) => {
-                const type = getPoiType(poi.tags);
-                const isVisited = visitedPois.has(poi.id);
-                const isCurrent = index === currentTargetIndex && !isVisited;
-
-                const card = document.createElement('div');
-                card.className = `poi-card ${isVisited ? 'visited' : ''} ${isCurrent ? 'current' : ''}`;
-                card.innerHTML = `
-                    <div class="poi-icon">${type.emoji}</div>
-                    <div class="poi-info">
-                        <div class="poi-name">${index + 1}. ${poi.name}</div>
-                        <div class="poi-meta">${type.name}${isVisited ? ' ✓' : isCurrent ? ' ← следующая' : ''}</div>
-                    </div>
-                    <div class="poi-distance">${formatDistance(poi.distance)}</div>
-                `;
-                card.onclick = () => selectPoi(index);
-                container.appendChild(card);
-            });
+        function getEmojiForType(tags) {
+            if (tags.tourism === 'artwork') return '🎨';
+            if (tags.historic === 'memorial') return '🪦';
+            if (tags.historic === 'monument') return '🗿';
+            if (tags.tourism === 'museum') return '🏛';
+            if (tags.amenity === 'place_of_worship') return '⛪';
+            if (tags.leisure === 'park') return '🌳';
+            return '📍';
         }
 
-        function formatDistance(meters) {
-            if (!meters) return '';
-            if (meters < 1000) return `${Math.round(meters)} м`;
-            return `${(meters / 1000).toFixed(1)} км`;
-        }
+        // Handle Telegram Location if sent live
+        // (For now simulation or init)
 
-        function selectPoi(index) {
-            const poi = pois[index];
-            map.setView([poi.lat, poi.lon], 17);
-            poiMarkers[index].openPopup();
-        }
+        window.onload = initMap;
 
-        // Initialize
-        function init() {
-            setStatus('Определение местоположения...');
-
-            const params = new URLSearchParams(window.location.search);
-            const urlLat = parseFloat(params.get('lat'));
-            const urlLon = parseFloat(params.get('lon'));
-
-            console.log('URL params:', { lat: urlLat, lon: urlLon });
-
-            if (!isNaN(urlLat) && !isNaN(urlLon) && urlLat !== 0 && urlLon !== 0) {
-                console.log('Using URL coordinates:', urlLat, urlLon);
-                initMap(urlLat, urlLon);
-                setStatus('Загрузка достопримечательностей...');
-                loadPoisFromUrl();
-                return;
-            }
-
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        initMap(position.coords.latitude, position.coords.longitude);
-                        setStatus('Ожидание данных...');
-                        navigator.geolocation.watchPosition(
-                            (pos) => updateUserPosition(pos.coords.latitude, pos.coords.longitude),
-                            null,
-                            { enableHighAccuracy: true }
-                        );
-                    },
-                    (error) => {
-                        console.error('Geolocation error:', error);
-                        initMap(55.7558, 37.6173);
-                        setStatus('Не удалось определить местоположение');
-                    },
-                    { enableHighAccuracy: true, timeout: 10000 }
-                );
-            } else {
-                initMap(55.7558, 37.6173);
-                setStatus('Геолокация не поддерживается');
-            }
-        }
-
-        function loadPoisFromUrl() {
-            const params = new URLSearchParams(window.location.search);
-            const poisParam = params.get('pois');
-
-            if (poisParam) {
-                try {
-                    const rawPois = JSON.parse(decodeURIComponent(poisParam));
-                    console.log('Loaded POIs:', rawPois.length);
-
-                    const normalizedPois = rawPois.map(p => ({
-                        id: p.id || p.i,
-                        lat: p.lat || p.a,
-                        lon: p.lon || p.o,
-                        name: p.name || p.n,
-                        tags: p.tags || {}
-                    }));
-
-                    addPoisToMap(normalizedPois);
-                } catch (e) {
-                    console.error('Failed to parse POIs:', e);
-                    setStatus('Ошибка загрузки');
-                }
-            } else {
-                setStatus('Отправьте геолокацию боту');
-            }
-        }
-
-        init();
     </script>
 </body>
 
