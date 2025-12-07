@@ -463,23 +463,29 @@
         function init() {
             setStatus('Определение местоположения...');
 
-            // Check URL params (for testing)
+            // Check URL params from Telegram
             const params = new URLSearchParams(window.location.search);
             const urlLat = parseFloat(params.get('lat'));
             const urlLon = parseFloat(params.get('lon'));
 
-            if (urlLat && urlLon) {
+            console.log('URL params:', { lat: urlLat, lon: urlLon, search: window.location.search });
+
+            // If coordinates provided in URL, use them
+            if (!isNaN(urlLat) && !isNaN(urlLon) && urlLat !== 0 && urlLon !== 0) {
+                console.log('Using URL coordinates:', urlLat, urlLon);
                 initMap(urlLat, urlLon);
+                setStatus('Загрузка достопримечательностей...');
                 loadPoisFromUrl();
                 return;
             }
 
-            // Use browser geolocation
+            // Use browser geolocation as fallback
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
                     (position) => {
                         const lat = position.coords.latitude;
                         const lon = position.coords.longitude;
+                        console.log('Browser geolocation:', lat, lon);
                         initMap(lat, lon);
                         setStatus('Ожидание данных о достопримечательностях...');
 
@@ -511,17 +517,23 @@
             });
         }
 
-        // Load POIs from URL (for testing)
+        // Load POIs from URL
         function loadPoisFromUrl() {
             const params = new URLSearchParams(window.location.search);
             const poisParam = params.get('pois');
+            console.log('POIs param length:', poisParam ? poisParam.length : 0);
+
             if (poisParam) {
                 try {
                     const poisData = JSON.parse(decodeURIComponent(poisParam));
+                    console.log('Loaded POIs from URL:', poisData.length);
                     addPoisToMap(poisData);
                 } catch (e) {
                     console.error('Failed to parse POIs:', e);
+                    setStatus('Ошибка загрузки достопримечательностей');
                 }
+            } else {
+                setStatus('Отправьте геолокацию боту');
             }
         }
 
