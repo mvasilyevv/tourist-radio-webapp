@@ -287,9 +287,64 @@
         let currentTargetIndex = 0;
         let debugMode = false;
         let lastSpokenPoi = null;
+        let apiUrl = null;
+        let currentAudio = null;
 
-        // TTS setup
+        // Init params
+        const urlParams = new URLSearchParams(window.location.search);
+        apiUrl = urlParams.get('apiUrl');
+        if (apiUrl) console.log("Backend API configured:", apiUrl);
+
+        // API & Audio Logic
+        async function fetchAndPlayStory(poi) {
+            setStatus("⏳ Генерирую историю...");
+            try {
+                const res = await fetch(`${apiUrl}/api/story`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: poi.name,
+                        tags: JSON.stringify(poi.tags),
+                        lat: poi.lat,
+                        lon: poi.lon
+                    })
+                });
+
+                if (!res.ok) throw new Error('API Error');
+
+                const data = await res.json();
+
+                if (data.audio_url) {
+                    playAudio(`${apiUrl}${data.audio_url}`);
+                    setStatus(`🗣 ${poi.name}`);
+                } else if (data.text) {
+                    speak(data.text);
+                }
+            } catch (e) {
+                console.error("Story generation failed:", e);
+                // Fallback
+                const typeName = getPoiType(poi.tags).name;
+                speak(`Вы прибыли к ${typeName}: ${poi.name}`);
+            }
+        }
+
+        function playAudio(src) {
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio = null;
+            }
+            const audio = new Audio(src);
+            currentAudio = audio;
+            audio.play().catch(e => console.error("Audio play error:", e));
+
+            audio.onended = () => {
+                setStatus(`✅ Прослушано: ${pois[currentTargetIndex]?.name || ''}`);
+            };
+        }
+
+        // TTS setup (Fallback)
         function speak(text) {
+            if (currentAudio) currentAudio.pause();
             if (!window.speechSynthesis) return;
             window.speechSynthesis.cancel();
 
@@ -467,20 +522,25 @@
             if (dist < 50) { // Within 50 meters
                 visitedPois.add(target.id);
 
-                // Speak if not spoken yet
                 if (lastSpokenPoi !== target.id) {
                     lastSpokenPoi = target.id;
-                    const typeName = getPoiType(target.tags).name;
-                    speak(`Вы прибыли к ${typeName}: ${target.name}. Нажмите отправить для подробностей.`);
-                    setStatus(`🗣 Озвучиваю: ${target.name}`);
+
+                    if (apiUrl) {
+                        fetchAndPlayStory(target);
+                    } else {
+                        const typeName = getPoiType(target.tags).name;
+                        speak(`Вы прибыли к ${typeName}: ${target.name}.`);
+                        setStatus(`🗣 Озвучиваю: ${target.name}`);
+                    }
                 } else {
                     setStatus(`✅ Прибыли: ${target.name}`);
                 }
 
-                // Delay moving to next target slightly to allow reading/listening
+                // Delay moving to next target to prevent spam
                 setTimeout(() => {
+                    // Only move if we finished? No, just keep moving.
                     moveToNextTarget();
-                }, 3000);
+                }, 10000); // 10 sec delay before switch specific target focus
             }
         }
 
