@@ -525,9 +525,20 @@
 
             if (poisParam) {
                 try {
-                    const poisData = JSON.parse(decodeURIComponent(poisParam));
-                    console.log('Loaded POIs from URL:', poisData.length);
-                    addPoisToMap(poisData);
+                    const rawPois = JSON.parse(decodeURIComponent(poisParam));
+                    console.log('Loaded raw POIs from URL:', rawPois.length);
+
+                    // Normalize POI format (support compact keys: i/a/o/n)
+                    const normalizedPois = rawPois.map(p => ({
+                        id: p.id || p.i,
+                        lat: p.lat || p.a,
+                        lon: p.lon || p.o,
+                        name: p.name || p.n,
+                        tags: p.tags || {}
+                    }));
+
+                    console.log('Normalized POIs:', normalizedPois);
+                    addPoisToMap(normalizedPois);
                 } catch (e) {
                     console.error('Failed to parse POIs:', e);
                     setStatus('Ошибка загрузки достопримечательностей');
