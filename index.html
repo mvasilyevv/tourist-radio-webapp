@@ -334,6 +334,9 @@
             userMarker = L.marker([lat, lon], { icon: userIcon, zIndexOffset: 1000 }).addTo(map);
             userPosition = { lat, lon };
 
+            // Debug mode state
+            let pendingDebugLocation = null;
+
             // Click handler for debug mode
             map.on('click', (e) => {
                 if (debugMode) {
@@ -341,31 +344,43 @@
                     const newLon = e.latlng.lng;
 
                     updateUserPosition(newLat, newLon);
-                    setStatus(`📍 Отправка: ${newLat.toFixed(5)}, ${newLon.toFixed(5)}...`);
 
-                    // Send location to bot via Telegram WebApp API
-                    try {
-                        const locationData = JSON.stringify({
-                            type: 'debug_location',
-                            lat: newLat,
-                            lon: newLon
-                        });
+                    // Store pending location
+                    pendingDebugLocation = { lat: newLat, lon: newLon };
 
-                        // Use sendData to send to bot
-                        if (tg.sendData) {
-                            tg.sendData(locationData);
-                            setStatus(`✅ Отправлено боту: ${newLat.toFixed(4)}, ${newLon.toFixed(4)}`);
-                        } else {
-                            // Fallback: show message if not in Telegram context
-                            setStatus(`📍 DEBUG (локально): ${newLat.toFixed(5)}, ${newLon.toFixed(5)}`);
-                            console.log('tg.sendData not available, simulating locally');
-                        }
-                    } catch (err) {
-                        console.error('Failed to send data to bot:', err);
-                        setStatus(`⚠️ Ошибка отправки: ${err.message}`);
+                    setStatus(`📍 Клик: ${newLat.toFixed(4)}, ${newLon.toFixed(4)} — нажмите "Отправить"`);
+
+                    // Show MainButton for sending
+                    if (tg.MainButton) {
+                        tg.MainButton.setText('📤 Отправить координаты боту');
+                        tg.MainButton.show();
                     }
                 }
             });
+
+            // MainButton click handler
+            if (tg.MainButton) {
+                tg.MainButton.onClick(() => {
+                    if (pendingDebugLocation) {
+                        const locationData = JSON.stringify({
+                            type: 'debug_location',
+                            lat: pendingDebugLocation.lat,
+                            lon: pendingDebugLocation.lon
+                        });
+
+                        console.log('Sending via MainButton:', locationData);
+                        console.log('WebApp version:', tg.version);
+                        console.log('initData:', tg.initData);
+
+                        try {
+                            tg.sendData(locationData);
+                        } catch (err) {
+                            console.error('sendData error:', err);
+                            alert('Ошибка: ' + err.message);
+                        }
+                    }
+                });
+            }
 
             hideLoading();
         }
