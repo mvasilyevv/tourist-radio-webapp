@@ -227,7 +227,34 @@
         <button class="debug-btn" id="debugBtn" onclick="toggleDebug()">🔧 Debug</button>
     </div>
 
+    <!-- HTML Fallback Send Button -->
+    <button id="htmlSendBtn" onclick="sendDebugLocation()" style="
+        display: none;
+        width: 100%;
+        padding: 15px;
+        background: #3390ec;
+        color: white;
+        border: none;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        z-index: 2000;
+    ">📤 Отправить координаты</button>
+
     <div id="map"></div>
+
+    <div style="font-size: 10px; color: #ccc; text-align: center; padding: 2px;">
+        v: <span id="tgVersion">-</span> | init: <span id="tgInit">-</span>
+    </div>
+
+    <script>
+        // Update debug info
+        document.getElementById('tgVersion').textContent = window.Telegram.WebApp.version || 'undef';
+        document.getElementById('tgInit').textContent = window.Telegram.WebApp.initData ? 'yes' : 'no';
+    </script>
 
     <div class="next-target" id="nextTarget" style="display: none;">
         <div class="next-target-icon">🎯</div>
@@ -348,38 +375,44 @@
                     // Store pending location
                     pendingDebugLocation = { lat: newLat, lon: newLon };
 
-                    setStatus(`📍 Клик: ${newLat.toFixed(4)}, ${newLon.toFixed(4)} — нажмите "Отправить"`);
+                    setStatus(`📍 Клик: ${newLat.toFixed(4)}, ${newLon.toFixed(4)}`);
 
-                    // Show MainButton for sending
+                    // Show MainButton
                     if (tg.MainButton) {
-                        tg.MainButton.setText('📤 Отправить координаты боту');
+                        tg.MainButton.setText('📤 Отправить координаты');
                         tg.MainButton.show();
+                    }
+
+                    // Also show HTML fallback button
+                    const htmlBtn = document.getElementById('htmlSendBtn');
+                    if (htmlBtn) {
+                        htmlBtn.style.display = 'block';
+                        htmlBtn.textContent = `📤 Отправить (${newLat.toFixed(4)}, ${newLon.toFixed(4)})`;
                     }
                 }
             });
 
+            // Function to send data
+            window.sendDebugLocation = function () {
+                if (pendingDebugLocation) {
+                    const locationData = JSON.stringify({
+                        type: 'debug_location',
+                        lat: pendingDebugLocation.lat,
+                        lon: pendingDebugLocation.lon
+                    });
+
+                    try {
+                        tg.sendData(locationData);
+                    } catch (err) {
+                        console.error('sendData error:', err);
+                        alert('Ошибка sendData: ' + err.message);
+                    }
+                }
+            };
+
             // MainButton click handler
             if (tg.MainButton) {
-                tg.MainButton.onClick(() => {
-                    if (pendingDebugLocation) {
-                        const locationData = JSON.stringify({
-                            type: 'debug_location',
-                            lat: pendingDebugLocation.lat,
-                            lon: pendingDebugLocation.lon
-                        });
-
-                        console.log('Sending via MainButton:', locationData);
-                        console.log('WebApp version:', tg.version);
-                        console.log('initData:', tg.initData);
-
-                        try {
-                            tg.sendData(locationData);
-                        } catch (err) {
-                            console.error('sendData error:', err);
-                            alert('Ошибка: ' + err.message);
-                        }
-                    }
-                });
+                tg.MainButton.onClick(window.sendDebugLocation);
             }
 
             hideLoading();
