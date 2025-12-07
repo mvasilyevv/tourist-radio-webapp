@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Туристическое Радио — Карта</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- Telegram Web App -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+        }
+
+        #map {
+            width: 100%;
+            height: 70vh;
+        }
+
+        .poi-list {
+            padding: 12px;
+            max-height: 30vh;
+            overflow-y: auto;
+        }
+
+        .poi-card {
+            background: var(--tg-theme-secondary-bg-color, #f5f5f5);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .poi-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .poi-card.active {
+            border: 2px solid var(--tg-theme-button-color, #3390ec);
+        }
+
+        .poi-card.visited {
+            opacity: 0.5;
+        }
+
+        .poi-icon {
+            font-size: 28px;
+            width: 40px;
+            text-align: center;
+        }
+
+        .poi-info {
+            flex: 1;
+        }
+
+        .poi-name {
+            font-weight: 600;
+            font-size: 15px;
+            margin-bottom: 4px;
+        }
+
+        .poi-meta {
+            font-size: 13px;
+            color: var(--tg-theme-hint-color, #999);
+        }
+
+        .poi-distance {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--tg-theme-button-color, #3390ec);
+        }
+
+        .user-marker {
+            background: #4285f4;
+            border: 3px solid white;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            font-size: 18px;
+        }
+
+        .route-line {
+            stroke: #3390ec;
+            stroke-width: 4;
+            stroke-linecap: round;
+            stroke-dasharray: 10, 10;
+            animation: dash 1s linear infinite;
+        }
+
+        @keyframes dash {
+            to {
+                stroke-dashoffset: -20;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+    <div class="poi-list" id="poiList">
+        <!-- POI cards will be inserted here -->
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        // Initialize Telegram WebApp
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+
+        // Apply Telegram theme
+        document.body.style.backgroundColor = tg.themeParams.bg_color || '#ffffff';
+
+        // Map instance
+        let map;
+        let userMarker;
+        let routeLine;
+        let poiMarkers = [];
+
+        // State
+        let pois = [];
+        let userPosition = null;
+        let visitedPois = new Set();
+
+        // POI type icons and names
+        const poiTypes = {
+            monument: { emoji: '🗿', name: 'Памятник' },
+            memorial: { emoji: '🪦', name: 'Мемориал' },
+            building: { emoji: '🏛', name: 'Здание' },
+            museum: { emoji: '🏛', name: 'Музей' },
+            artwork: { emoji: '🎨', name: 'Арт-объект' },
+            viewpoint: { emoji: '🌄', name: 'Смотровая' },
+            attraction: { emoji: '⭐', name: 'Достопримечательность' },
+            theatre: { emoji: '🎭', name: 'Театр' },
+            cinema: { emoji: '🎬', name: 'Кино' },
+            default: { emoji: '📍', name: 'Интересное место' }
+        };
+
+        // Get POI type info
+        function getPoiType(tags) {
+            for (const [key, value] of Object.entries(tags)) {
+                if (poiTypes[value]) {
+                    return poiTypes[value];
+                }
+            }
+            return poiTypes.default;
+        }
+
+        // Initialize map
+        function initMap(lat, lon) {
+            map = L.map('map').setView([lat, lon], 15);
+
+            // Use OpenStreetMap tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap'
+            }).addTo(map);
+
+            // User marker
+            const userIcon = L.divIcon({
+                className: 'user-marker',
+                iconSize: [16, 16],
+                iconAnchor: [8, 8]
+            });
+
+            userMarker = L.marker([lat, lon], { icon: userIcon }).addTo(map);
+            userPosition = { lat, lon };
+        }
+
+        // Update user position
+        function updateUserPosition(lat, lon) {
+            userPosition = { lat, lon };
+            if (userMarker) {
+                userMarker.setLatLng([lat, lon]);
+            }
+            updateDistances();
+            renderPoiList();
+        }
+
+        // Add POIs to map
+        function addPoisToMap(poisData) {
+            pois = poisData;
+
+            // Clear existing markers
+            poiMarkers.forEach(m => map.removeLayer(m));
+            poiMarkers = [];
+
+            // Add markers
+            pois.forEach((poi, index) => {
+                const type = getPoiType(poi.tags || {});
+                const icon = L.divIcon({
+                    html: `<div style="font-size: 24px; text-align: center;">${type.emoji}</div>`,
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 15],
+                    className: ''
+                });
+
+                const marker = L.marker([poi.lat, poi.lon], { icon })
+                    .addTo(map)
+                    .bindPopup(`<b>${poi.name}</b><br>${type.name}`);
+
+                marker.on('click', () => selectPoi(index));
+                poiMarkers.push(marker);
+            });
+
+            // Draw route
+            drawRoute();
+            renderPoiList();
+
+            // Fit bounds
+            if (pois.length > 0) {
+                const bounds = L.latLngBounds(pois.map(p => [p.lat, p.lon]));
+                if (userPosition) {
+                    bounds.extend([userPosition.lat, userPosition.lon]);
+                }
+                map.fitBounds(bounds, { padding: [30, 30] });
+            }
+        }
+
+        // Draw route line
+        function drawRoute() {
+            if (routeLine) {
+                map.removeLayer(routeLine);
+            }
+
+            if (pois.length < 2) return;
+
+            const coords = pois.map(p => [p.lat, p.lon]);
+            if (userPosition) {
+                coords.unshift([userPosition.lat, userPosition.lon]);
+            }
+
+            routeLine = L.polyline(coords, {
+                color: '#3390ec',
+                weight: 4,
+                opacity: 0.8,
+                dashArray: '10, 10'
+            }).addTo(map);
+        }
+
+        // Update distances from user
+        function updateDistances() {
+            if (!userPosition) return;
+
+            pois.forEach(poi => {
+                poi.distance = calculateDistance(
+                    userPosition.lat, userPosition.lon,
+                    poi.lat, poi.lon
+                );
+            });
+
+            // Sort by distance
+            pois.sort((a, b) => a.distance - b.distance);
+        }
+
+        // Calculate distance in meters (Haversine)
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371000;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
+        // Render POI list
+        function renderPoiList() {
+            const container = document.getElementById('poiList');
+            container.innerHTML = '';
+
+            pois.forEach((poi, index) => {
+                const type = getPoiType(poi.tags || {});
+                const isVisited = visitedPois.has(poi.id);
+
+                const card = document.createElement('div');
+                card.className = `poi-card ${isVisited ? 'visited' : ''}`;
+                card.innerHTML = `
+                    <div class="poi-icon">${type.emoji}</div>
+                    <div class="poi-info">
+                        <div class="poi-name">${poi.name}</div>
+                        <div class="poi-meta">${type.name}</div>
+                    </div>
+                    <div class="poi-distance">${formatDistance(poi.distance)}</div>
+                `;
+                card.onclick = () => selectPoi(index);
+                container.appendChild(card);
+            });
+        }
+
+        // Format distance
+        function formatDistance(meters) {
+            if (!meters) return '';
+            if (meters < 1000) {
+                return `${Math.round(meters)} м`;
+            }
+            return `${(meters / 1000).toFixed(1)} км`;
+        }
+
+        // Select POI
+        function selectPoi(index) {
+            const poi = pois[index];
+            map.setView([poi.lat, poi.lon], 17);
+            poiMarkers[index].openPopup();
+
+            // Send to bot
+            tg.sendData(JSON.stringify({
+                action: 'select_poi',
+                poi_id: poi.id,
+                poi_name: poi.name
+            }));
+        }
+
+        // Mark POI as visited
+        function markVisited(poiId) {
+            visitedPois.add(poiId);
+            renderPoiList();
+        }
+
+        // Initialize with data from URL or Telegram
+        function init() {
+            // Try to get data from URL params (for testing)
+            const params = new URLSearchParams(window.location.search);
+            const lat = parseFloat(params.get('lat')) || 56.8391;
+            const lon = parseFloat(params.get('lon')) || 60.6060;
+
+            initMap(lat, lon);
+
+            // Sample POI data (will be replaced by real data from bot)
+            const samplePois = [
+                { id: 1, name: 'Дом Севастьянова', lat: 56.8391, lon: 60.6060, tags: { historic: 'building' } },
+                { id: 2, name: 'Исторический сквер', lat: 56.8375, lon: 60.6058, tags: { tourism: 'attraction' } },
+                { id: 3, name: 'Памятник Клавиатуре', lat: 56.8323, lon: 60.6076, tags: { tourism: 'artwork' } }
+            ];
+
+            // Check for Telegram init data
+            if (tg.initDataUnsafe && tg.initDataUnsafe.start_param) {
+                // Parse POI data from start_param (base64 encoded)
+                try {
+                    const data = JSON.parse(atob(tg.initDataUnsafe.start_param));
+                    if (data.pois) {
+                        addPoisToMap(data.pois);
+                    }
+                    if (data.userLat && data.userLon) {
+                        updateUserPosition(data.userLat, data.userLon);
+                    }
+                } catch (e) {
+                    console.log('Using sample data');
+                    addPoisToMap(samplePois);
+                }
+            } else {
+                addPoisToMap(samplePois);
+            }
+
+            // Listen for location updates from Telegram
+            tg.onEvent('locationRequested', (location) => {
+                if (location) {
+                    updateUserPosition(location.latitude, location.longitude);
+                }
+            });
+        }
+
+        // Start
+        init();
+    </script>
+</body>
+
+</html>
