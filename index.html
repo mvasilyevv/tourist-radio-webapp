@@ -224,25 +224,21 @@
             <div class="pulse"></div>
             <span id="statusText">Определение местоположения...</span>
         </div>
-        <button class="debug-btn" id="debugBtn" onclick="toggleDebug()">🔧 Debug</button>
+        <div style="display: flex; gap: 8px;">
+            <button id="htmlSendBtn" onclick="sendDebugLocation()" style="
+                display: none;
+                background: #4ade80;
+                border: 1px solid rgba(255, 255, 255, 0.4);
+                color: #064e3b;
+                padding: 4px 10px;
+                border-radius: 15px;
+                font-size: 12px;
+                font-weight: 600;
+                cursor: pointer;
+            ">📤 Отправить</button>
+            <button class="debug-btn" id="debugBtn" onclick="toggleDebug()">🔧 Debug</button>
+        </div>
     </div>
-
-    <!-- HTML Fallback Send Button -->
-    <button id="htmlSendBtn" onclick="sendDebugLocation()" style="
-        display: none;
-        width: 100%;
-        padding: 15px;
-        background: #3390ec;
-        color: white;
-        border: none;
-        font-size: 16px;
-        font-weight: 600;
-        cursor: pointer;
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        z-index: 2000;
-    ">📤 Отправить координаты</button>
 
     <div id="map"></div>
 
@@ -386,8 +382,8 @@
                     // Also show HTML fallback button
                     const htmlBtn = document.getElementById('htmlSendBtn');
                     if (htmlBtn) {
-                        htmlBtn.style.display = 'block';
-                        htmlBtn.textContent = `📤 Отправить (${newLat.toFixed(4)}, ${newLon.toFixed(4)})`;
+                        htmlBtn.style.display = 'inline-block';
+                        htmlBtn.textContent = '📤 Отправить';
                     }
                 }
             });
